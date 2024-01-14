@@ -1,0 +1,277 @@
+SELECT COUNT(status)
+FROM company
+WHERE status LIKE 'closed';
+
+--
+
+SELECT funding_total
+FROM company
+WHERE category_code LIKE 'news' AND country_code LIKE 'USA'
+ORDER BY funding_total DESC;
+
+--
+
+SELECT SUM(price_amount)
+FROM acquisition
+WHERE term_code LIKE 'cash' AND acquired_at BETWEEN '2011-01-01' AND '2013-12-31';
+
+--
+
+SELECT first_name,
+last_name,
+twitter_username
+FROM people
+WHERE twitter_username LIKE 'Silver%';
+
+--
+
+SELECT *
+FROM people
+WHERE twitter_username LIKE '%money%' AND last_name LIKE 'K%';
+
+--
+
+SELECT SUM(funding_total),
+country_code
+FROM company
+GROUP BY country_code
+ORDER BY SUM(funding_total) DESC;
+
+--
+
+SELECT funded_at,
+MIN(raised_amount),
+MAX(raised_amount)
+FROM funding_round
+GROUP BY funded_at
+HAVING MIN(raised_amount) > 0 AND MIN(raised_amount) != MAX(raised_amount);
+
+--
+
+SELECT *,
+       CASE
+           WHEN invested_companies >= 100 THEN 'high_activity'
+           WHEN invested_companies >= 20 AND invested_companies < 100 THEN 'middle_activity'
+           WHEN invested_companies < 20 THEN 'low_activity'
+       END
+FROM fund;
+
+--
+
+SELECT ROUND(AVG(investment_rounds)),
+       CASE
+           WHEN invested_companies>=100 THEN 'high_activity'
+           WHEN invested_companies>=20 THEN 'middle_activity'
+           ELSE 'low_activity'
+       END AS activity
+FROM fund
+GROUP BY activity
+ORDER BY ROUND(AVG(investment_rounds));
+
+--
+
+SELECT country_code,
+MIN(invested_companies),
+MAX(invested_companies),
+AVG(invested_companies)
+FROM fund
+WHERE founded_at BETWEEN '2010-01-01' AND '2012-12-31'
+GROUP BY country_code
+HAVING MIN(invested_companies) > 0
+ORDER BY AVG(invested_companies) DESC, country_code
+LIMIT 10;
+
+--
+
+SELECT p.first_name,
+p.last_name,
+e.instituition
+FROM people AS p
+LEFT JOIN education AS e ON p.id=e.person_id;
+
+--
+
+SELECT COUNT(DISTINCT e.instituition),
+c.name
+FROM education AS e
+JOIN people AS p ON e.person_id=p.id
+JOIN company AS c ON p.company_id=c.id
+GROUP BY c.name
+ORDER BY COUNT(DISTINCT e.instituition) DESC
+LIMIT 5;
+
+--
+
+SELECT DISTINCT c.name
+FROM company AS c
+LEFT JOIN funding_round AS fr ON c.id = fr.company_id
+WHERE c.status LIKE 'closed' AND fr.is_first_round = 1 AND fr.is_last_round = 1;
+
+--
+
+SELECT DISTINCT id
+FROM people 
+WHERE company_id IN 
+(SELECT DISTINCT c.id
+FROM company AS c
+LEFT JOIN funding_round AS fr ON c.id = fr.company_id
+WHERE c.status LIKE 'closed' AND fr.is_first_round = 1 AND fr.is_last_round = 1); 
+
+--
+
+SELECT DISTINCT instituition,
+person_id
+FROM education 
+WHERE person_id IN
+(SELECT DISTINCT id
+FROM people 
+WHERE company_id IN 
+(SELECT DISTINCT c.id
+FROM company AS c
+LEFT JOIN funding_round AS fr ON c.id = fr.company_id
+WHERE c.status LIKE 'closed' AND fr.is_first_round = 1 
+AND fr.is_last_round = 1));
+
+--
+
+SELECT COUNT(instituition),
+person_id
+FROM education 
+WHERE person_id IN
+(SELECT DISTINCT id
+FROM people 
+WHERE company_id IN 
+(SELECT DISTINCT c.id
+FROM company AS c
+LEFT JOIN funding_round AS fr ON c.id = fr.company_id
+WHERE c.status LIKE 'closed' AND fr.is_first_round = 1 
+AND fr.is_last_round = 1))
+GROUP BY person_id;
+
+--
+
+WITH
+list AS
+(SELECT COUNT(instituition) AS all_institutions,
+person_id
+FROM education 
+WHERE person_id IN
+(SELECT DISTINCT id
+FROM people 
+WHERE company_id IN 
+(SELECT DISTINCT c.id
+FROM company AS c
+LEFT JOIN funding_round AS fr ON c.id = fr.company_id
+WHERE c.status LIKE 'closed' AND fr.is_first_round = 1 
+AND fr.is_last_round = 1))
+GROUP BY person_id)
+SELECT AVG(all_institutions)
+FROM list;
+
+--
+
+WITH
+list AS
+(SELECT COUNT(instituition) AS all_institutions,
+person_id
+FROM education 
+WHERE person_id IN
+(SELECT DISTINCT id
+FROM people 
+WHERE company_id IN 
+(SELECT id
+FROM company 
+WHERE name LIKE 'Facebook'))
+GROUP BY person_id)
+SELECT AVG(all_institutions)
+FROM list;
+
+--
+
+SELECT f.name AS name_of_fund,
+c.name AS name_of_company,
+fr.raised_amount AS amount
+FROM investment AS i
+JOIN company AS c ON i.company_id=c.id
+JOIN fund AS f ON i.fund_id=f.id
+JOIN funding_round AS fr ON i.funding_round_id=fr.id
+WHERE c.milestones > 6 AND CAST(funded_at AS date) BETWEEN '2012-01-01' AND '2013-12-31';
+
+--
+
+SELECT c_1.name AS buyer,
+a.price_amount,
+c_2.name AS seller,
+c_2.funding_total,
+ROUND(a.price_amount/c_2.funding_total)
+FROM acquisition AS a
+LEFT JOIN company AS c_1 ON a.acquiring_company_id=c_1.id 
+LEFT JOIN company AS c_2 ON a.acquired_company_id=c_2.id
+WHERE a.price_amount > 0 AND c_2.funding_total > 0 
+ORDER BY a.price_amount DESC, seller
+LIMIT 10;
+
+--
+
+SELECT c.name,
+EXTRACT(MONTH FROM CAST(funded_at AS date))
+FROM company AS c
+JOIN funding_round AS fr ON c.id=fr.company_id
+WHERE category_code LIKE 'social' 
+AND raised_amount > 0 
+AND CAST(funded_at AS date) BETWEEN '2010-01-01' AND '2013-12-31';
+
+--
+
+WITH 
+list1 AS (SELECT EXTRACT(MONTH FROM CAST(fr.funded_at AS date)) AS month,
+COUNT(DISTINCT f.name) AS company_name
+FROM funding_round AS fr 
+LEFT JOIN investment AS i ON fr.id=i.funding_round_id
+LEFT JOIN fund AS f ON i.fund_id=f.id
+WHERE CAST(fr.funded_at AS date) BETWEEN '2010-01-01' AND '2013-12-31' AND f.country_code LIKE 'USA' 
+GROUP BY month),
+
+list2 AS (SELECT EXTRACT(MONTH FROM CAST(acquired_at AS date)) AS month,
+COUNT(acquired_company_id) AS company_quality,
+SUM(price_amount) AS total_sum
+FROM acquisition
+WHERE CAST(acquired_at AS date) BETWEEN '2010-01-01' AND '2013-12-31'
+GROUP BY month)
+
+SELECT list1.month,
+list1.company_name,
+list2.company_quality,
+list2.total_sum
+FROM list1 JOIN list2 ON list1.month=list2.month;
+
+--
+
+with
+year11 as (select avg(funding_total) as avg11,
+country_code
+from company
+where extract(year from cast(founded_at as date))= 2011
+group by country_code),
+
+year12 as (select avg(funding_total) as avg12,
+country_code
+from company
+where extract(year from cast(founded_at as date))= 2012
+group by country_code),
+
+year13 as (select avg(funding_total) as avg13,
+country_code
+from company
+where extract(year from cast(founded_at as date))= 2013
+group by country_code)
+
+select year11.country_code,
+year11.avg11,
+year12.avg12,
+year13.avg13
+from year11 
+join year12 on year11.country_code=year12.country_code
+join year13 on year12.country_code=year13.country_code
+--where year11.country_code is not null
+order by avg11 desc;
