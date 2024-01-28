@@ -1,5 +1,5 @@
-# Portfolio
-My portfolio
+# yandex_practicum_projects
+
 | Название проекта | Описание | Используемые библиотеки |
 | :---------------------- | :---------------------- | :---------------------- |
 | [Продвинутый SQL](https://github.com/vlada-dov/Portfolio/tree/main/Advanced_sql "Advanced_sql")| Написаны все сложные SQL-запросы для подсчёта требуемых значений и метрик. | *SQL, PostgreSQL* |
